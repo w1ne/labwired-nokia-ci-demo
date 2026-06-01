@@ -1,5 +1,7 @@
 # Nokia 5110 Invaders — firmware validated in CI, no hardware
 
+[![Firmware Tests (LabWired)](https://github.com/w1ne/labwired-nokia-ci-demo/actions/workflows/firmware-test.yml/badge.svg)](https://github.com/w1ne/labwired-nokia-ci-demo/actions/workflows/firmware-test.yml)
+
 A tiny but complete example of **testing embedded firmware in CI against a
 deterministic simulator** — no physical board, no hardware-in-the-loop rig.
 
