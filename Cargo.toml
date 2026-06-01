@@ -1,0 +1,26 @@
+[package]
+name = "nokia5110-invaders"
+version = "0.1.0"
+edition = "2021"
+description = "STM32L476 Nokia 5110 (PCD8544) breakout firmware, validated in CI by the LabWired simulator — no physical hardware."
+license = "MIT"
+
+[dependencies]
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+panic-halt = "0.2"
+
+[[bin]]
+name = "nokia5110-invaders"
+test = false
+bench = false
+
+# Size-optimized + LTO: this is the build LabWired runs in CI. opt-level "z"
+# makes LLVM fully unroll the framebuffer fills into far conditional branches
+# (B<cond>.W) — exactly the instruction class a real LabWired CPU bug once
+# mis-decoded, which is why the framebuffer assertion below is a useful guard.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"

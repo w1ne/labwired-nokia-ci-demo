@@ -1,0 +1,35 @@
+# LabWired test script — validate firmware behaviour in CI, no physical hardware.
+#
+# The firmware renders to a 504-byte PCD8544 framebuffer kept in RAM at
+# 0x20000000 (84 cols x 6 banks; each byte = 8 vertical pixels). At boot it
+# draws a deterministic splash frame: the invader grid plus the player paddle
+# centred at x = 34..49, on rows 45..47 (the bottom three rows = bank 5).
+#
+# A lit paddle pixel-column is therefore byte[5*84 + x] with bits 5,6,7 set
+# = 0xE0. We assert three columns across the paddle. If the firmware (or the
+# simulated CPU) failed to draw it, these bytes would be 0x00 and CI goes red.
+#
+#   address = 0x20000000 + 5*84 + x = 0x200001A4 + x
+#     x = 37 -> 0x200001C9
+#     x = 41 -> 0x200001CD
+#     x = 45 -> 0x200001D1
+schema_version: "1.0"
+
+# Paths are resolved relative to this script's directory (tests/), so reach up
+# to the repo root with `../`.
+inputs:
+  system: "../system.yaml"
+  firmware: "../target/thumbv7em-none-eabihf/release/nokia5110-invaders"
+
+limits:
+  # Stop while the boot splash is still on screen (the game loop starts later),
+  # so the asserted paddle position is deterministic.
+  max_cycles: 5000000
+  max_steps: 5000000
+
+# `size` is in BITS: 8 reads one byte (one PCD8544 pixel-column), 16/32 read a
+# halfword/word. 0xE0 = bits 5,6,7 set = the three paddle rows (45,46,47) lit.
+assertions:
+  - memory_value: { address: 0x200001C9, expected_value: 0xE0, size: 8 } # paddle col 37
+  - memory_value: { address: 0x200001CD, expected_value: 0xE0, size: 8 } # paddle col 41
+  - memory_value: { address: 0x200001D1, expected_value: 0xE0, size: 8 } # paddle col 45

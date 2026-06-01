@@ -1,0 +1,4 @@
+# Build for the L476's Cortex-M4F core by default, so `cargo build --release`
+# just works (locally and in CI) without repeating --target every time.
+[build]
+target = "thumbv7em-none-eabihf"

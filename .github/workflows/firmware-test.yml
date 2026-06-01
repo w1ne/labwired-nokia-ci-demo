@@ -1,0 +1,70 @@
+name: Firmware Tests (LabWired)
+
+# Validate the firmware in the LabWired deterministic simulator on every push
+# and PR — no physical board, no hardware-in-the-loop rig.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  firmware-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (with the Cortex-M4F target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv7em-none-eabihf
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-labwired-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-labwired-
+
+      # The LabWired CLI is built from the public engine repo. The simulated CPU,
+      # peripherals (PCD8544 LCD, HC-SR04) and assertions all live there. We
+      # clone without submodules (the CLI doesn't need the IO-Link vendor dir)
+      # and build just the `labwired-cli` package.
+      - name: Install LabWired CLI
+        run: |
+          git clone --depth 1 https://github.com/w1ne/labwired-core "$RUNNER_TEMP/labwired-core"
+          # Build for the host explicitly: this repo's .cargo/config.toml defaults
+          # the target to thumbv7em (for the firmware), which the std CLI can't use.
+          host="$(rustc -vV | sed -n 's/^host: //p')"
+          cargo build --release -p labwired-cli \
+            --manifest-path "$RUNNER_TEMP/labwired-core/Cargo.toml" \
+            --target "$host"
+          echo "$RUNNER_TEMP/labwired-core/target/$host/release" >> "$GITHUB_PATH"
+
+      - name: Build firmware (release, thumbv7em-none-eabihf)
+        run: cargo build --release
+
+      - name: Validate firmware in the simulator
+        run: labwired test --script tests/paddle.lwtest.yaml --output-dir out/ --no-key --no-uart-stdout
+
+      - name: Publish test report
+        uses: mikepenz/action-junit-report@v4
+        if: always()
+        with:
+          report_paths: out/junit.xml
+
+      - name: Upload simulation artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: simulation-results
+          path: out/
