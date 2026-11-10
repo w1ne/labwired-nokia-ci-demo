@@ -22,10 +22,14 @@ inputs:
   firmware: "../target/thumbv7em-none-eabihf/release/nokia5110-invaders"
 
 limits:
-  # Stop while the boot splash is still on screen (the game loop starts later),
-  # so the asserted paddle position is deterministic.
+  # Stop once the splash is present, before the game can clear/redraw the
+  # framebuffer. Sampling at exactly 5M steps depends on compiler loop timing
+  # and can land in a later render with the paddle bytes temporarily cleared.
+  # The limits bound failure; they do not select the successful sample point.
   max_cycles: 5000000
   max_steps: 5000000
+  stop_when_assertions_pass: true
+  stop_when_assertions_pass_settle_steps: 100000
 
 # `size` is in BITS: 8 reads one byte (one PCD8544 pixel-column), 16/32 read a
 # halfword/word. 0xE0 = bits 5,6,7 set = the three paddle rows (45,46,47) lit.
@@ -33,3 +37,4 @@ assertions:
   - memory_value: { address: 0x200001C9, expected_value: 0xE0, size: 8 } # paddle col 37
   - memory_value: { address: 0x200001CD, expected_value: 0xE0, size: 8 } # paddle col 41
   - memory_value: { address: 0x200001D1, expected_value: 0xE0, size: 8 } # paddle col 45
+  - expected_stop_reason: assertions_passed
